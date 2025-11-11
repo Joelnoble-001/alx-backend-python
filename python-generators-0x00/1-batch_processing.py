@@ -1,37 +1,32 @@
 #!/usr/bin/python3
-"""
-Module: 1-batch_processing
-Objective: Stream and process users data in batches using generators
-"""
-
-from typing import Generator, List, Dict
+import mysql.connector
+from seed import connect_to_prodev
 
 
-def stream_users_in_batches(batch_size: int) -> Generator[List[Dict], None, None]:
-    """
-    Generator function that fetches users in batches of `batch_size`.
-    Simulates fetching data from a users database.
-    """
-    # Simulate a large dataset of users
-    users = [
-        {"user_id": f"{i:05d}", "name": f"User {i}", "email": f"user{i}@example.com", "age": i % 120}
-        for i in range(1, 1001)  # Example: 1000 users
-    ]
+def stream_users_in_batches(batch_size):
+    """Fetch rows from user_data in batches using yield"""
+    connection = connect_to_prodev()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM user_data")
 
-    for i in range(0, len(users), batch_size):
-        yield users[i:i + batch_size]  # Yield a batch of users
+    batch = []
+    for row in cursor:
+        batch.append(row)
+        if len(batch) == batch_size:
+            yield batch
+            batch = []
+
+    # yield any remaining users
+    if batch:
+        yield batch
+
+    cursor.close()
+    connection.close()
 
 
-def batch_processing(batch_size: int):
-    """
-    Processes each batch and filters users over the age of 25.
-    """
+def batch_processing(batch_size):
+    """Process each batch to filter users over age 25"""
     for batch in stream_users_in_batches(batch_size):
-        # Filter users older than 25
-        processed_users = [user for user in batch if user["age"] > 25]
-        for user in processed_users:
-            print(user)
-
-
-# ✅ The stream_users_in_batches() function is above
-# It yields batches of users, which batch_processing() then filters and prints.
+        for user in batch:
+            if user['age'] > 25:
+                print(user)
