@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, filters
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
@@ -40,9 +40,9 @@ class ConversationViewSet(viewsets.ModelViewSet):
         )
 
 
-# -----------------------------
+
 # Message ViewSet
-# -----------------------------
+
 class MessageViewSet(viewsets.ModelViewSet):
     queryset = Message.objects.all()
     serializer_class = MessageSerializer
