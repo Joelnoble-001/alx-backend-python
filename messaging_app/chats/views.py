@@ -1,11 +1,13 @@
 from django.shortcuts import render
-from rest_framework import viewsets, status, filters, viewsets, status
+from rest_framework import viewsets, status, filters
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from .models import Conversation, Message, User
 from .serializers import ConversationSerializer, MessageSerializer
 from rest_framework.permissions import IsAuthenticated
 from .permissions import IsParticipantOfConversation
+from django_filters.rest_framework import DjangoFilterBackend
+from .filters import MessageFilter
 # Create your views here.
 
 
@@ -13,9 +15,15 @@ from .permissions import IsParticipantOfConversation
 
 # Conversation ViewSet
 
+
 class ConversationViewSet(viewsets.ModelViewSet):
     queryset = Conversation.objects.all()
     serializer_class = ConversationSerializer
+    permission_classes = [IsAuthenticated, IsParticipantOfConversation]
+
+    def get_queryset(self):
+        # Only return conversations the user participates in
+        return Conversation.objects.filter(users=self.request.user)
 
     # POST /api/conversations/
     def create(self, request, *args, **kwargs):
@@ -29,24 +37,28 @@ class ConversationViewSet(viewsets.ModelViewSet):
 
         conversation = Conversation.objects.create()
         participants = User.objects.filter(id__in=participant_ids)
-        conversation.participants.add(*participants)
+        conversation.users.add(*participants)
 
-        return Response(
-            ConversationSerializer(conversation).data,
-            status=status.HTTP_201_CREATED
-        )
+        serializer = ConversationSerializer(conversation)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 
 # Message ViewSet
 
+
 class MessageViewSet(viewsets.ModelViewSet):
     queryset = Message.objects.all()
     serializer_class = MessageSerializer
+    permission_classes = [IsAuthenticated, IsParticipantOfConversation]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = MessageFilter
+
+    def get_queryset(self):
+        # Return only messages in conversations the user is part of
+        return Message.objects.filter(conversation__users=self.request.user)
 
     # POST /api/messages/
-    # Expected body:
-    # { "conversation": "<id>", "sender": "<id>", "message_body": "Hello" }
     def create(self, request, *args, **kwargs):
         conversation_id = request.data.get("conversation")
         sender_id = request.data.get("sender")
@@ -67,6 +79,13 @@ class MessageViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        # User must be part of conversation
+        if request.user not in conversation.users.all():
+            return Response(
+                {"detail": "Forbidden"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         message = Message.objects.create(
             conversation=conversation,
             sender=sender,
@@ -78,30 +97,14 @@ class MessageViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED
         )
 
-class ConversationViewSet(viewsets.ModelViewSet):
-    queryset = Conversation.objects.all()
-    serializer_class = ConversationSerializer
-    permission_classes = [IsAuthenticated, IsParticipantOfConversation]
-
-    def get_queryset(self):
-        # Only return conversations the user participates in
-        return Conversation.objects.filter(users=self.request.user)
-
-
-class MessageViewSet(viewsets.ModelViewSet):
-    queryset = Message.objects.all()
-    serializer_class = MessageSerializer
-    permission_classes = [IsAuthenticated, IsParticipantOfConversation]
-
-    def get_queryset(self):
-        # Only messages in conversations where the user is a participant
-        return Message.objects.filter(conversation__users=self.request.user)
-
+    # Serializer-based creation (kept for other clients)
     def perform_create(self, serializer):
         conversation = serializer.validated_data["conversation"]
+
         if self.request.user not in conversation.users.all():
             return Response(
                 {"detail": "Forbidden"},
                 status=status.HTTP_403_FORBIDDEN
             )
+
         serializer.save(user=self.request.user)
