@@ -1,30 +1,22 @@
 from rest_framework import serializers
 from rest_framework.serializers import SerializerMethodField
-from .models import Conversation, Message
+from .models import User, Conversation, Message
 
-
-# User Serializer
-
+# Message Serializer
 class MessageSerializer(serializers.ModelSerializer):
-    sender = serializers.CharField(source='sender.username')
+    sender = serializers.CharField(source='sender.username')  # Optional, shows username
 
     class Meta:
         model = Message
-        fields = ['id', 'sender', 'content', 'timestamp']
+        fields = ['message_id', 'conversation', 'sender', 'message_body', 'sent_at']
 
-
+# Conversation Serializer
 class ConversationSerializer(serializers.ModelSerializer):
-    title = serializers.CharField()
-    messages = SerializerMethodField()
+    messages = SerializerMethodField() 
 
     class Meta:
         model = Conversation
-        fields = ['id', 'title', 'messages']
+        fields = ['conversation_id', 'participants', 'created_at', 'messages']
 
     def get_messages(self, obj):
         return MessageSerializer(obj.messages.all(), many=True).data
-
-    def validate_title(self, value):
-        if len(value) < 3:
-            raise serializers.ValidationError("Title is too short")
-        return value
