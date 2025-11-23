@@ -1,0 +1,70 @@
+
+  {
+    "info": {
+      "name": "Messaging App API",
+      "_postman_id": "12345678-abcd-efgh-ijkl-1234567890ab",
+      "description": "Postman collection for testing the messaging_app API (JWT authentication, conversations, messages, pagination, filters).",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+      {
+        "name": "Auth - Obtain Token",
+        "request": {
+          "method": "POST",
+          "header": [{"key": "Content-Type", "value": "application/json"}],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n    \"username\": \"user1\",\n    \"password\": \"password123\"\n}"
+          },
+          "url": {"raw": "http://localhost:8000/api/token/", "protocol": "http", "host": ["localhost"], "port": "8000", "path": ["api","token",""]}
+        },
+        "response": []
+      },
+      {
+        "name": "Auth - Refresh Token",
+        "request": {
+          "method": "POST",
+          "header": [{"key": "Content-Type", "value": "application/json"}],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n    \"refresh\": \"{{REFRESH_TOKEN}}\"\n}"
+          },
+          "url": {"raw": "http://localhost:8000/api/token/refresh/", "protocol": "http", "host": ["localhost"], "port": "8000", "path": ["api","token","refresh",""]}
+        },
+        "response": []
+      },
+      {
+        "name": "Conversation - Create",
+        "request": {
+          "method": "POST",
+          "header": [
+            {"key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}"},
+            {"key": "Content-Type", "value": "application/json"}
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n    \"participants\": [1, 2]\n}"
+          },
+          "url": {"raw": "http://localhost:8000/api/conversations/", "protocol": "http", "host": ["localhost"], "port": "8000", "path": ["api","conversations",""]}
+        },
+        "response": []
+      },
+      {
+        "name": "Message - Send",
+        "request": {
+          "method": "POST",
+          "header": [
+            {"key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}"},
+            {"key": "Content-Type", "value": "application/json"}
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n    \"conversation\": 1,\n    \"sender\": 1,\n    \"message_body\": \"Hello!\"\n}"
+          },
+          "url": {"raw": "http://localhost:8000/api/messages/", "protocol": "http", "host": ["localhost"], "port": "8000", "path": ["api","messages",""]}
+        },
+        "response": []
+      }
+    ]
+  }
+
