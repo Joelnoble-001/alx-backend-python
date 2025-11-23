@@ -1,14 +1,11 @@
 from django.shortcuts import render
-from rest_framework import viewsets, status, filters
+from rest_framework import viewsets, status, filters, viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
-
 from .models import Conversation, Message, User
-from .serializers import (
-    ConversationSerializer,
-    MessageSerializer,
-)
-
+from .serializers import ConversationSerializer, MessageSerializer
+from rest_framework.permissions import IsAuthenticated
+from .permissions import IsParticipantOfConversation
 # Create your views here.
 
 
@@ -80,3 +77,31 @@ class MessageViewSet(viewsets.ModelViewSet):
             MessageSerializer(message).data,
             status=status.HTTP_201_CREATED
         )
+
+class ConversationViewSet(viewsets.ModelViewSet):
+    queryset = Conversation.objects.all()
+    serializer_class = ConversationSerializer
+    permission_classes = [IsAuthenticated, IsParticipantOfConversation]
+
+    def get_queryset(self):
+        # Only return conversations the user participates in
+        return Conversation.objects.filter(users=self.request.user)
+
+
+class MessageViewSet(viewsets.ModelViewSet):
+    queryset = Message.objects.all()
+    serializer_class = MessageSerializer
+    permission_classes = [IsAuthenticated, IsParticipantOfConversation]
+
+    def get_queryset(self):
+        # Only messages in conversations where the user is a participant
+        return Message.objects.filter(conversation__users=self.request.user)
+
+    def perform_create(self, serializer):
+        conversation = serializer.validated_data["conversation"]
+        if self.request.user not in conversation.users.all():
+            return Response(
+                {"detail": "Forbidden"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        serializer.save(user=self.request.user)
