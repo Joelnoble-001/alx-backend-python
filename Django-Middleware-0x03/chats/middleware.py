@@ -66,7 +66,7 @@ class OffensiveLanguageMiddleware:
 
 
 # 4. Enforce Chat User Role Permissions
-class RolePermissionMiddleware:
+class RolepermissionMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
