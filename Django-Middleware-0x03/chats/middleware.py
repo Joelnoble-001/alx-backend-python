@@ -1,7 +1,7 @@
-# middleware.py
 from datetime import datetime, time, timedelta
 from django.http import HttpResponseForbidden
 
+# 1. Logging User Requests
 class RequestLoggingMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
@@ -15,55 +15,57 @@ class RequestLoggingMiddleware:
 
         return self.get_response(request)
 
+
+# 2. Restrict Chat Access by Time
 class RestrictAccessByTimeMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        now = datetime.now().time()
+        if request.path.startswith("/chat/"):
+            now = datetime.now().time()
+            start = time(18, 0)  # 6 PM
+            end = time(21, 0)    # 9 PM
 
-        # Restrict between 6PM and 9PM (18:00–21:00)
-        start = time(18, 0)  # 6 PM
-        end = time(21, 0)    # 9 PM
-
-        if start <= now <= end:
-            return HttpResponseForbidden("<h3>Access to chat is restricted at this time.</h3>")
+            if now < start or now > end:  # Deny access **outside 6–9 PM**
+                return HttpResponseForbidden(
+                    "<h3>Access to chat is restricted at this time.</h3>"
+                )
 
         return self.get_response(request)
-    
-from django.http import HttpResponseForbidden
 
+
+# 3. Detect and Block Offensive Language (Rate Limiting)
 class OffensiveLanguageMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
         self.message_log = {}  # {ip: [timestamps]}
 
     def __call__(self, request):
-        if request.method == "POST":  # Count only chat message posts
-            ip = request.META.get('REMOTE_ADDR')
-            now = datetime.now()
+        if request.method == "POST" and request.path.startswith("/chat/"):
+            ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+            if ',' in ip:
+                ip = ip.split(',')[0]
 
-            # Create entry if IP not in log
+            now = datetime.now()
             if ip not in self.message_log:
                 self.message_log[ip] = []
 
-            # Filter out timestamps older than 1 minute
+            # Keep only messages in the last 1 minute
             one_minute_ago = now - timedelta(minutes=1)
-            self.message_log[ip] = [
-                t for t in self.message_log[ip] if t > one_minute_ago
-            ]
+            self.message_log[ip] = [t for t in self.message_log[ip] if t > one_minute_ago]
 
-            # Enforce limit → 5 messages/minute
             if len(self.message_log[ip]) >= 5:
                 return HttpResponseForbidden(
                     "<h3>Message limit reached. Try again in a minute.</h3>"
                 )
 
-            # Record new message timestamp
             self.message_log[ip].append(now)
 
         return self.get_response(request)
-    
+
+
+# 4. Enforce Chat User Role Permissions
 class RolePermissionMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
@@ -72,5 +74,7 @@ class RolePermissionMiddleware:
         if request.path.startswith("/chat/admin/"):
             user = request.user
             if not user.is_authenticated or getattr(user, "role", None) not in ["admin", "moderator"]:
-                return HttpResponseForbidden("You do not have permission to access this page.")
+                return HttpResponseForbidden(
+                    "<h3>You do not have permission to access this page.</h3>"
+                )
         return self.get_response(request)
