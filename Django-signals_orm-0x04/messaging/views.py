@@ -18,6 +18,7 @@ def fetch_replies(message):
 
 # ───── Inbox (optimized + required .only + select_related) ─────
 @login_required
+@cache_page(60)
 def inbox(request):
     inbox_messages = (
         Message.objects.filter(receiver=request.user)
