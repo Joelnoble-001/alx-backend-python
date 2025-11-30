@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from .managers import UnreadMessagesManager 
 
 
 class UnreadMessagesManager(models.Manager):
@@ -41,11 +42,14 @@ class MessageHistory(models.Model):
     old_content = models.TextField()
     edited_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ['-edited_at']
+
     def __str__(self):
         return f"History for message {self.message.id}"
 
-def get_thread(message_id):
-    from django.db.models import Prefetch
-    return Message.objects.filter(id=message_id).prefetch_related(
-        Prefetch("replies", queryset=Message.objects.select_related("sender", "receiver"))
-    )
+    def get_thread(message_id):
+        from django.db.models import Prefetch
+        return Message.objects.filter(id=message_id).prefetch_related(
+            Prefetch("replies", queryset=Message.objects.select_related("sender", "receiver"))
+        )
